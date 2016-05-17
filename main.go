@@ -23,7 +23,7 @@ type configuration struct {
 
 func main() {
 	rootCmd := cobra.Command{
-		Short: "shipit",
+		Short: "streamer",
 		RunE:  run,
 	}
 
