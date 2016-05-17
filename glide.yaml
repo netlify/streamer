@@ -1,0 +1,3 @@
+package: github.com/netlify/shipit
+import:
+- package: github.com/dleung/gotail
