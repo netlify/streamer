@@ -5,3 +5,5 @@
 db/*
 
 vendor/
+streamer
+*.log
