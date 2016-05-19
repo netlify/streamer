@@ -1,7 +1,11 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
 	"sync"
 
 	"github.com/Sirupsen/logrus"
@@ -10,51 +14,49 @@ import (
 	"github.com/spf13/cobra"
 
 	nconfig "github.com/netlify/util/config"
+	nlog "github.com/netlify/util/logger"
 	nnats "github.com/netlify/util/nats"
 )
 
-var logger = logrus.StandardLogger()
-var debug = false
+var logger *logrus.Entry
+var host string
 
 type configuration struct {
-	NatsConf nnats.Configuration `json:"nats_conf"`
-	Subjects map[string]string   `json:"subjects"`
+	NatsConf nnats.Configuration   `json:"nats_conf"`
+	LogConf  nlog.LogConfiguration `json:"log_conf"`
+	Paths    []string              `json:"paths"`
+	Prefix   string                `json:"prefix"`
 }
 
 func main() {
+	var configFile string
+
 	rootCmd := cobra.Command{
 		Short: "streamer",
-		RunE:  run,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if configFile == "" {
+				return errors.New("Must provide a config file")
+			}
+
+			return run(configFile)
+		},
 	}
 
-	rootCmd.Flags().StringP("config", "c", "config.json", "a configruation file to use")
-	rootCmd.Flags().BoolVarP(&debug, "debug", "d", false, "enable debug logging")
+	rootCmd.Flags().StringVarP(&configFile, "config", "c", "config.json", "a configruation file to use")
 
 	if err := rootCmd.Execute(); err != nil {
 		logger.Fatalf("Failed to execute command: %v", err)
 	}
 }
 
-func run(cmd *cobra.Command, args []string) error {
-	configFile, err := cmd.Flags().GetString("config")
+func run(configFile string) error {
+	conf := new(configuration)
+	err := nconfig.LoadFromFile(configFile, conf)
 	if err != nil {
 		return err
 	}
 
-	if configFile == "" {
-		return errors.New("Must provide a config file")
-	}
-
-	if debug {
-		logrus.SetLevel(logrus.DebugLevel)
-	}
-
-	return runFromFile(configFile)
-}
-
-func runFromFile(configFile string) error {
-	conf := new(configuration)
-	err := nconfig.LoadFromFile(configFile, conf)
+	logger, err = nlog.ConfigureLogging(&conf.LogConf)
 	if err != nil {
 		return err
 	}
@@ -65,44 +67,69 @@ func runFromFile(configFile string) error {
 		return err
 	}
 
-	logger.Debugf("dispatching tailers: %+v", conf.Subjects)
+	host, err = os.Hostname()
+	if err != nil {
+		return err
+	}
+
+	logger.Debugf("building tailers")
 
 	wg := sync.WaitGroup{}
-	for subject, file := range conf.Subjects {
-		wg.Add(1)
-		go func(f, s string) {
-			err := tailAndSend(nc, f, s)
-			if err != nil {
-				logger.WithFields(logrus.Fields{
-					"subject": s,
-					"file":    f,
-				}).WithError(err).Errorf("Error while tailing")
-			}
-			wg.Done()
-		}(file, subject)
+	for _, glob := range conf.Paths {
+		matches, err := filepath.Glob(glob)
+		if err != nil {
+			return err
+		}
+		if matches == nil {
+			return fmt.Errorf("'%s' didn't match any files", glob)
+		}
+
+		for _, path := range matches {
+			subject := conf.Prefix + filepath.Base(path)
+			log := logger.WithFields(logrus.Fields{
+				"file":    path,
+				"subject": subject,
+			})
+			path := path // intentional shadow
+
+			wg.Add(1)
+			go func() {
+				log.Info("Starting to tail forever")
+				err := tailForever(nc, subject, path)
+				if err != nil {
+					log.WithError(err).Warn("Problem tailing file")
+				}
+				wg.Done()
+			}()
+		}
 	}
+
 	logger.Debug("Waiting for routines to complete")
 	wg.Wait()
 	return nil
 }
 
-func tailAndSend(nc *nats.Conn, file, subject string) error {
-	log := logger.WithFields(logrus.Fields{
-		"subject": subject,
-		"file":    file,
-	})
-	log.Debug("Creating tail")
-	tail, err := gotail.NewTail(file, gotail.Config{})
+func tailForever(nc *nats.Conn, subject, path string) error {
+	tail, err := gotail.NewTail(path, gotail.Config{})
 	if err != nil {
 		return err
 	}
-
-	log.Debugf("Starting to tail file")
-	for line := range tail.Lines {
-		nc.Publish(subject, []byte(line))
+	payload := map[string]string{
+		"@filepath": path,
+		"@hostname": host,
 	}
 
-	// this should never happen
-	log.Info("Finished tailing")
+	for line := range tail.Lines {
+		payload["@msg"] = line
+		asBytes, err := json.Marshal(&payload)
+		if err != nil {
+			return err
+		}
+		err = nc.Publish(subject, asBytes)
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }

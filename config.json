@@ -6,8 +6,12 @@
     "cert_file": "/usr/local/etc/certs/test.pem",
     "hostname": "nats.lo"
   },
-  "subjects": {
-    "test-1-log": "test1.log",
-    "test-2-log": "test2.log"
-  }
+  "log_conf": {
+    "log_level": "DEBUG"
+  },
+  "prefix": "test-log.",
+  "paths": [
+    "./test1.log",
+    "./test2.log"
+  ]
 }
