@@ -1,5 +1,5 @@
-hash: fd968fca84740e5cab5fe64bf4288fac9c23f4f4dec6fd7cb9e16af1198e3e8a
-updated: 2016-05-17T16:06:55.679966166-07:00
+hash: abcc82a1fc821e6623273b34733d878daceac633ef0e97103cd6eadda199fa77
+updated: 2016-05-20T09:41:22.534536018-07:00
 imports:
 - name: github.com/dleung/gotail
   version: 6ce86b525cbca720d34fa57c27d055c31d19a723
@@ -12,9 +12,10 @@ imports:
 - name: github.com/nats-io/nuid
   version: a5152d67cf63cbfb5d992a395458722a45194715
 - name: github.com/netlify/util
-  version: 868303b277708ff40a34858d9cd585faf066d939
+  version: 2047d86800ca5b4fd253c7af79037c0dec8e0663
   subpackages:
   - config
+  - logger
   - nats
 - name: github.com/Sirupsen/logrus
   version: cd7d1bbe41066b6c1f19780f895901052150a575
