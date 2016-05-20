@@ -11,7 +11,6 @@
   },
   "prefix": "test-log.",
   "paths": [
-    "./test1.log",
-    "./test2.log"
+    "./test*.log"
   ]
 }

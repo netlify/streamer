@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"unicode"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/dleung/gotail"
@@ -85,7 +86,7 @@ func run(configFile string) error {
 		}
 
 		for _, path := range matches {
-			subject := conf.Prefix + filepath.Base(path)
+			subject := getSubjectName(conf.Prefix, path)
 			log := logger.WithFields(logrus.Fields{
 				"file":    path,
 				"subject": subject,
@@ -132,4 +133,17 @@ func tailForever(nc *nats.Conn, subject, path string) error {
 	}
 
 	return nil
+}
+
+func getSubjectName(prefix, path string) string {
+	fname := filepath.Base(path)
+	runes := make([]rune, len(prefix)+len(fname))
+	for i, r := range prefix + fname {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) || r == '.' || r == '-' {
+			runes[i] = r
+		} else {
+			runes[i] = '_'
+		}
+	}
+	return string(runes)
 }
