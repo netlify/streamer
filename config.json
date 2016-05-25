@@ -3,7 +3,8 @@
     "servers": ["nats://nats.lo:4222"],
     "ca_files": ["/usr/local/etc/certs/ca.pem"],
     "key_file": "/usr/local/etc/certs/test-key.pem",
-    "cert_file": "/usr/local/etc/certs/test.pem"
+    "cert_file": "/usr/local/etc/certs/test.pem",
+    "nats_hook_subject": "test-log.streamer"
   },
   "log_conf": {
     "log_level": "DEBUG"

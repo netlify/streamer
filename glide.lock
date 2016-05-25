@@ -1,5 +1,5 @@
-hash: abcc82a1fc821e6623273b34733d878daceac633ef0e97103cd6eadda199fa77
-updated: 2016-05-20T09:41:22.534536018-07:00
+hash: e2df5c87ed38517e9b6954a7cf99e936ca7e9efcaf741f89d96abb5be620bbd0
+updated: 2016-05-25T16:37:23.385438144-07:00
 imports:
 - name: github.com/dleung/gotail
   version: 6ce86b525cbca720d34fa57c27d055c31d19a723
@@ -11,18 +11,16 @@ imports:
   - encoders/builtin
 - name: github.com/nats-io/nuid
   version: a5152d67cf63cbfb5d992a395458722a45194715
-- name: github.com/netlify/util
-  version: 2047d86800ca5b4fd253c7af79037c0dec8e0663
-  subpackages:
-  - config
-  - logger
-  - nats
+- name: github.com/netlify/messaging
+  version: bbfdc4308f73ca41c0a872bd0ae7181c1bf29ed2
 - name: github.com/Sirupsen/logrus
-  version: cd7d1bbe41066b6c1f19780f895901052150a575
+  version: 6d9ae300aaf85d6acd2e5424081c7fcddb21dab8
 - name: github.com/spf13/cobra
   version: f368244301305f414206f889b1735a54cfc8bde8
 - name: github.com/spf13/pflag
   version: cb88ea77998c3f024757528e3305022ab50b43be
+- name: github.com/streadway/amqp
+  version: 2e25825abdbd7752ff08b270d313b93519a0a232
 - name: golang.org/x/sys
   version: d4feaf1a7e61e1d9e79e6c4e76c6349e9cab0a03
   subpackages:

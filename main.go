@@ -2,8 +2,7 @@ package main
 
 import (
 	"encoding/json"
-	"errors"
-	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"sync"
@@ -12,34 +11,24 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/dleung/gotail"
 	"github.com/nats-io/nats"
+	"github.com/netlify/messaging"
 	"github.com/spf13/cobra"
-
-	nconfig "github.com/netlify/util/config"
-	nlog "github.com/netlify/util/logger"
-	nnats "github.com/netlify/util/nats"
 )
 
 var logger *logrus.Entry
 var host string
-
-type configuration struct {
-	NatsConf nnats.Configuration   `json:"nats_conf"`
-	LogConf  nlog.LogConfiguration `json:"log_conf"`
-	Paths    []string              `json:"paths"`
-	Prefix   string                `json:"prefix"`
-}
 
 func main() {
 	var configFile string
 
 	rootCmd := cobra.Command{
 		Short: "streamer",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		Run: func(cmd *cobra.Command, args []string) {
 			if configFile == "" {
-				return errors.New("Must provide a config file")
+				log.Fatal("Must provide a config file")
 			}
 
-			return run(configFile)
+			run(configFile)
 		},
 	}
 
@@ -50,27 +39,35 @@ func main() {
 	}
 }
 
-func run(configFile string) error {
+func run(configFile string) {
 	conf := new(configuration)
-	err := nconfig.LoadFromFile(configFile, conf)
+	err := loadFromFile(configFile, conf)
 	if err != nil {
-		return err
+		log.Fatalf("Failed to load configuration: %v", err)
 	}
 
-	logger, err = nlog.ConfigureLogging(&conf.LogConf)
+	logger, err = configureLogging(&conf.LogConf)
 	if err != nil {
-		return err
+		log.Fatalf("Failed to configure logging : %v", err)
 	}
 
 	logger.WithFields(conf.NatsConf.LogFields()).Debug("Connecting to nats")
-	nc, err := nnats.Connect(&conf.NatsConf)
+	nc, err := messaging.ConnectToNats(&conf.NatsConf.NatsConfig)
 	if err != nil {
-		return err
+		logger.WithError(err).Fatal("Failed to connect to nats")
+	}
+
+	if conf.NatsConf.NatsHookSubject != "" {
+		hook, err := messaging.NewNatsHook(nc, conf.NatsConf.NatsHookSubject)
+		if err != nil {
+			logger.WithError(err).Fatal("Failed to connect build nats hook")
+		}
+		logrus.AddHook(hook)
 	}
 
 	host, err = os.Hostname()
 	if err != nil {
-		return err
+		logger.WithError(err).Fatal("Failed to get hostname")
 	}
 
 	logger.Debugf("building tailers")
@@ -79,10 +76,10 @@ func run(configFile string) error {
 	for _, glob := range conf.Paths {
 		matches, err := filepath.Glob(glob)
 		if err != nil {
-			return err
+			logger.WithError(err).Fatalf("Failed to parse glob %s", glob)
 		}
 		if matches == nil {
-			return fmt.Errorf("'%s' didn't match any files", glob)
+			logger.Fatalf("'%s' didn't match any files", glob)
 		}
 
 		for _, path := range matches {
@@ -107,7 +104,7 @@ func run(configFile string) error {
 
 	logger.Debug("Waiting for routines to complete")
 	wg.Wait()
-	return nil
+	logger.Info("Shutting down")
 }
 
 func tailForever(nc *nats.Conn, subject, path string) error {
