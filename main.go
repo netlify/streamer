@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"unicode"
 
@@ -119,14 +120,17 @@ func tailForever(nc *nats.Conn, subject, path string) error {
 	}
 
 	for line := range tail.Lines {
-		payload["@msg"] = line
-		asBytes, err := json.Marshal(&payload)
-		if err != nil {
-			return err
-		}
-		err = nc.Publish(subject, asBytes)
-		if err != nil {
-			return err
+		line = strings.TrimSpace(line)
+		if line != "" {
+			payload["@msg"] = line
+			asBytes, err := json.Marshal(&payload)
+			if err != nil {
+				return err
+			}
+			err = nc.Publish(subject, asBytes)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
