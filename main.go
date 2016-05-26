@@ -63,6 +63,7 @@ func run(configFile string) {
 			logger.WithError(err).Fatal("Failed to connect build nats hook")
 		}
 		logrus.AddHook(hook)
+		logger.WithField("hook_subject", conf.NatsConf.NatsHookSubject).Debug("Added nats hook")
 	}
 
 	host, err = os.Hostname()
