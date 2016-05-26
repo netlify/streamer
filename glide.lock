@@ -1,5 +1,5 @@
 hash: e2df5c87ed38517e9b6954a7cf99e936ca7e9efcaf741f89d96abb5be620bbd0
-updated: 2016-05-25T16:37:23.385438144-07:00
+updated: 2016-05-26T10:57:54.341380345-07:00
 imports:
 - name: github.com/dleung/gotail
   version: 6ce86b525cbca720d34fa57c27d055c31d19a723
