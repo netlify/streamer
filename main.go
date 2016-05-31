@@ -10,10 +10,11 @@ import (
 	"unicode"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/dleung/gotail"
+	"github.com/hpcloud/tail"
 	"github.com/nats-io/nats"
-	"github.com/netlify/messaging"
 	"github.com/spf13/cobra"
+
+	"github.com/netlify/messaging"
 )
 
 var logger *logrus.Entry
@@ -110,19 +111,27 @@ func run(configFile string) {
 }
 
 func tailForever(nc *nats.Conn, subject, path string) error {
-	tail, err := gotail.NewTail(path, gotail.Config{})
+	tailConfig := tail.Config{
+		Logger:      logger,
+		ReOpen:      true,
+		MustExist:   true,
+		Follow:      true,
+		MaxLineSize: 0, // infinite lines
+	}
+	t, err := tail.TailFile(path, tailConfig)
 	if err != nil {
 		return err
 	}
+
 	payload := map[string]string{
 		"@filepath": path,
 		"@hostname": host,
 	}
 
-	for line := range tail.Lines {
-		line = strings.TrimSpace(line)
-		if line != "" {
-			payload["@msg"] = line
+	for line := range t.Lines {
+		text := strings.TrimSpace(line.Text)
+		if text != "" {
+			payload["@msg"] = text
 			asBytes, err := json.Marshal(&payload)
 			if err != nil {
 				return err

@@ -1,8 +1,13 @@
-hash: e2df5c87ed38517e9b6954a7cf99e936ca7e9efcaf741f89d96abb5be620bbd0
-updated: 2016-05-26T10:57:54.341380345-07:00
+hash: 143f0465ec55f3e675214ee76db660e30a91b5d7fccd2bda708393c2531fd61b
+updated: 2016-05-31T10:33:46.214167967-07:00
 imports:
-- name: github.com/dleung/gotail
-  version: 6ce86b525cbca720d34fa57c27d055c31d19a723
+- name: github.com/hpcloud/tail
+  version: a30252cb686a21eb2d0b98132633053ec2f7f1e5
+  subpackages:
+  - ratelimiter
+  - util
+  - watch
+  - winfile
 - name: github.com/inconshreveable/mousetrap
   version: 76626ae9c91c4f2a10f34cad8ce83ea42c93bb75
 - name: github.com/nats-io/nats
@@ -26,5 +31,7 @@ imports:
   subpackages:
   - unix
 - name: gopkg.in/fsnotify.v1
-  version: 30411dbcefb7a1da7e84f75530ad3abe4011b4f8
+  version: 7be54206639f256967dd82fa767397ba5f8f48f5
+- name: gopkg.in/tomb.v1
+  version: c131134a1947e9afd9cecfe11f4c6dff0732ae58
 devImports: []
