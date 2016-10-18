@@ -1,6 +1,19 @@
-hash: 143f0465ec55f3e675214ee76db660e30a91b5d7fccd2bda708393c2531fd61b
-updated: 2016-05-31T10:33:46.214167967-07:00
+hash: 6e8429ac1d1e32dac4f7ed220e163f9986726e4a8529bfc26db6a58908db8fe3
+updated: 2016-10-18T11:27:42.339831112-07:00
 imports:
+- name: github.com/fsnotify/fsnotify
+  version: bd2828f9f176e52d7222e565abb2d338d3f3c103
+- name: github.com/hashicorp/hcl
+  version: 6f5bfed9a0a22222fbe4e731ae3481730ba41e93
+  subpackages:
+  - hcl/ast
+  - hcl/parser
+  - hcl/token
+  - json/parser
+  - hcl/scanner
+  - hcl/strconv
+  - json/scanner
+  - json/token
 - name: github.com/hpcloud/tail
   version: a30252cb686a21eb2d0b98132633053ec2f7f1e5
   subpackages:
@@ -10,28 +23,63 @@ imports:
   - winfile
 - name: github.com/inconshreveable/mousetrap
   version: 76626ae9c91c4f2a10f34cad8ce83ea42c93bb75
+- name: github.com/kr/fs
+  version: 2788f0dbd16903de03cb8186e5c7d97b69ad387b
+- name: github.com/magiconair/properties
+  version: 0723e352fa358f9322c938cc2dadda874e9151a9
+- name: github.com/mitchellh/mapstructure
+  version: a6ef2f080c66d0a2e94e97cf74f80f772855da63
 - name: github.com/nats-io/nats
   version: fc85f44c1659ab6610d76fd6bd0e44ad2cadf697
   subpackages:
   - encoders/builtin
 - name: github.com/nats-io/nuid
   version: a5152d67cf63cbfb5d992a395458722a45194715
-- name: github.com/netlify/messaging
-  version: bbfdc4308f73ca41c0a872bd0ae7181c1bf29ed2
+- name: github.com/pelletier/go-buffruneio
+  version: df1e16fde7fc330a0ca68167c23bf7ed6ac31d6d
+- name: github.com/pelletier/go-toml
+  version: 45932ad32dfdd20826f5671da37a5f3ce9f26a8d
+- name: github.com/pkg/errors
+  version: 839d9e913e063e28dfd0e6c7b7512793e0a48be9
+- name: github.com/pkg/sftp
+  version: 4d0e916071f68db74f8a73926335f809396d6b42
 - name: github.com/Sirupsen/logrus
-  version: 6d9ae300aaf85d6acd2e5424081c7fcddb21dab8
+  version: 4b6ea7319e214d98c938f12692336f7ca9348d6b
+- name: github.com/spf13/afero
+  version: 52e4a6cfac46163658bd4f123c49b6ee7dc75f78
+  subpackages:
+  - mem
+  - sftp
+- name: github.com/spf13/cast
+  version: 2580bc98dc0e62908119e4737030cc2fdfc45e4c
 - name: github.com/spf13/cobra
   version: f368244301305f414206f889b1735a54cfc8bde8
+- name: github.com/spf13/jwalterweatherman
+  version: 33c24e77fb80341fe7130ee7c594256ff08ccc46
 - name: github.com/spf13/pflag
   version: cb88ea77998c3f024757528e3305022ab50b43be
-- name: github.com/streadway/amqp
-  version: 2e25825abdbd7752ff08b270d313b93519a0a232
+- name: github.com/spf13/viper
+  version: 50515b700e02658272117a72bd641b6b7f1222e5
+- name: golang.org/x/crypto
+  version: 9e9c7d4ed3e28836a0741f74011e308570bec743
+  subpackages:
+  - ssh
+  - curve25519
+  - ed25519
+  - ed25519/internal/edwards25519
 - name: golang.org/x/sys
   version: d4feaf1a7e61e1d9e79e6c4e76c6349e9cab0a03
   subpackages:
   - unix
+- name: golang.org/x/text
+  version: a35b82c6add3543753645decf6532c40cac8b855
+  subpackages:
+  - transform
+  - unicode/norm
 - name: gopkg.in/fsnotify.v1
   version: 7be54206639f256967dd82fa767397ba5f8f48f5
 - name: gopkg.in/tomb.v1
   version: c131134a1947e9afd9cecfe11f4c6dff0732ae58
-devImports: []
+- name: gopkg.in/yaml.v2
+  version: a5b47d31c556af34a302ce5d659e6fea44d90de0
+testImports: []

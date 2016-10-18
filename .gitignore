@@ -7,3 +7,4 @@ db/*
 vendor/
 streamer
 *.log
+*.iml
