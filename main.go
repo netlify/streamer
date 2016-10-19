@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -14,59 +15,54 @@ import (
 	"github.com/nats-io/nats"
 	"github.com/spf13/cobra"
 
-	"github.com/netlify/messaging"
+	"time"
+
+	"github.com/netlify/streamer/conf"
+	"github.com/netlify/streamer/messaging"
 )
 
-var logger *logrus.Entry
 var host string
 
-func main() {
-	var configFile string
+var statLock sync.Mutex
+var stats map[string]int64
 
+func main() {
 	rootCmd := cobra.Command{
 		Short: "streamer",
-		Run: func(cmd *cobra.Command, args []string) {
-			if configFile == "" {
-				log.Fatal("Must provide a config file")
-			}
-
-			run(configFile)
-		},
+		Run:   run,
 	}
 
-	rootCmd.Flags().StringVarP(&configFile, "config", "c", "config.json", "a configruation file to use")
+	rootCmd.Flags().StringP("config", "c", "config.json", "a configruation file to use")
 
 	if err := rootCmd.Execute(); err != nil {
-		logger.Fatalf("Failed to execute command: %v", err)
+		logrus.Fatalf("Failed to execute command: %v", err)
 	}
 }
 
-func run(configFile string) {
-	conf := new(configuration)
-	err := loadFromFile(configFile, conf)
+func run(cmd *cobra.Command, args []string) {
+	config, err := conf.LoadConfig(cmd)
 	if err != nil {
-		log.Fatalf("Failed to load configuration: %v", err)
+		logrus.Fatalf("Failed to load configuration: %v", err)
 	}
 
-	logger, err = configureLogging(&conf.LogConf)
+	logger, err := conf.ConfigureLogging(&config.LogConf)
 	if err != nil {
 		log.Fatalf("Failed to configure logging : %v", err)
 	}
 
-	logger.WithFields(conf.NatsConf.LogFields()).Debug("Connecting to nats")
-	nc, err := messaging.ConnectToNats(&conf.NatsConf.NatsConfig)
+	logger.WithFields(logrus.Fields{
+		"servers":   config.NatsConf.Servers,
+		"ca_files":  config.NatsConf.CAFiles,
+		"key_file":  config.NatsConf.KeyFile,
+		"cert_file": config.NatsConf.CertFile,
+	}).Debug("Connecting to nats")
+	nc, err := messaging.ConnectToNats(&config.NatsConf)
 	if err != nil {
 		logger.WithError(err).Fatal("Failed to connect to nats")
 	}
 
-	if conf.NatsConf.NatsHookSubject != "" {
-		hook, err := messaging.NewNatsHook(nc, conf.NatsConf.NatsHookSubject)
-		if err != nil {
-			logger.WithError(err).Fatal("Failed to connect build nats hook")
-		}
-		logrus.AddHook(hook)
-		logger.WithField("hook_subject", conf.NatsConf.NatsHookSubject).Debug("Added nats hook")
-	}
+	stats = make(map[string]int64)
+	reportStats(config.ReportSec, nc, logger)
 
 	host, err = os.Hostname()
 	if err != nil {
@@ -76,17 +72,17 @@ func run(configFile string) {
 	logger.Debugf("building tailers")
 
 	wg := sync.WaitGroup{}
-	for _, glob := range conf.Paths {
-		matches, err := filepath.Glob(glob)
+	for _, pathConfig := range config.Paths {
+		matches, err := filepath.Glob(pathConfig.Path)
 		if err != nil {
-			logger.WithError(err).Fatalf("Failed to parse glob %s", glob)
+			logger.WithError(err).Fatalf("Failed to parse glob %s", pathConfig.Path)
 		}
 		if matches == nil {
-			logger.Fatalf("'%s' didn't match any files", glob)
+			logger.Fatalf("'%s' didn't match any files", pathConfig.Path)
 		}
 
 		for _, path := range matches {
-			subject := getSubjectName(conf.Prefix, path)
+			subject := getSubjectName(pathConfig.Prefix, path)
 			log := logger.WithFields(logrus.Fields{
 				"file":    path,
 				"subject": subject,
@@ -95,12 +91,13 @@ func run(configFile string) {
 
 			wg.Add(1)
 			go func() {
+				defer wg.Done()
+
 				log.Info("Starting to tail forever")
-				err := tailForever(nc, subject, path)
+				err := tailForever(nc, subject, path, log)
 				if err != nil {
 					log.WithError(err).Warn("Problem tailing file")
 				}
-				wg.Done()
 			}()
 		}
 	}
@@ -110,11 +107,12 @@ func run(configFile string) {
 	logger.Info("Shutting down")
 }
 
-func tailForever(nc *nats.Conn, subject, path string) error {
+func tailForever(nc *nats.Conn, subject, path string, logger *logrus.Entry) error {
 	tailConfig := tail.Config{
 		Logger:      logger,
 		ReOpen:      true,
 		MustExist:   true,
+		Location:    &tail.SeekInfo{Offset: 0, Whence: os.SEEK_END},
 		Follow:      true,
 		MaxLineSize: 0, // infinite lines
 	}
@@ -127,19 +125,31 @@ func tailForever(nc *nats.Conn, subject, path string) error {
 		"@filepath": path,
 		"@hostname": host,
 	}
-
+	maxPayload := nc.MaxPayload()
+	overageKey := fmt.Sprintf("%s.over_size", path)
+	linesSeenKey := fmt.Sprintf("%s.lines_seen", path)
+	blankSeenKey := fmt.Sprintf("%s.blanks_seen", path)
 	for line := range t.Lines {
 		text := strings.TrimSpace(line.Text)
 		if text != "" {
+			incrementStat(linesSeenKey)
 			payload["@msg"] = text
 			asBytes, err := json.Marshal(&payload)
 			if err != nil {
 				return err
 			}
-			err = nc.Publish(subject, asBytes)
-			if err != nil {
-				return err
+			length := len(asBytes)
+			if int64(length) > maxPayload {
+				logger.Warnf("Can't send line because it is over length: %d vs %d bytes", length, maxPayload)
+				incrementStat(overageKey)
+			} else {
+				err = nc.Publish(subject, asBytes)
+				if err != nil {
+					return err
+				}
 			}
+		} else {
+			incrementStat(blankSeenKey)
 		}
 	}
 
@@ -148,8 +158,8 @@ func tailForever(nc *nats.Conn, subject, path string) error {
 
 func getSubjectName(prefix, path string) string {
 	fname := filepath.Base(path)
-	runes := make([]rune, len(prefix)+len(fname))
-	for i, r := range prefix + fname {
+	runes := make([]rune, len(prefix)+len(fname)+1)
+	for i, r := range prefix + "." + fname {
 		if unicode.IsLetter(r) || unicode.IsDigit(r) || r == '.' || r == '-' {
 			runes[i] = r
 		} else {
@@ -157,4 +167,42 @@ func getSubjectName(prefix, path string) string {
 		}
 	}
 	return string(runes)
+}
+
+func reportStats(intervalSec int64, nc *nats.Conn, log *logrus.Entry) {
+	if intervalSec == 0 {
+		log.Info("Stat reporting disabled")
+		return
+	}
+
+	go func() {
+		ticks := time.Tick(time.Duration(intervalSec) * time.Second)
+		for range ticks {
+			go func() {
+				fields := logrus.Fields{
+					"in_bytes":  nc.Statistics.InBytes,
+					"out_bytes": nc.Statistics.OutBytes,
+					"in_msgs":   nc.Statistics.InMsgs,
+					"out_msgs":  nc.Statistics.OutMsgs,
+				}
+				for k, v := range stats {
+					fields[k] = v
+				}
+
+				logrus.WithFields(fields).Info("Stats report")
+			}()
+		}
+	}()
+}
+
+func incrementStat(key string) {
+	go func() {
+		statLock.Lock()
+		defer statLock.Unlock()
+		val, ok := stats[key]
+		if !ok {
+			val = 0
+		}
+		stats[key] = val + 1
+	}()
 }

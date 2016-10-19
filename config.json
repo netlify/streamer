@@ -6,11 +6,12 @@
     "cert_file": "/usr/local/etc/certs/test.pem",
     "nats_hook_subject": "test-log.streamer"
   },
+  "report_sec": 60,
   "log_conf": {
     "log_level": "DEBUG"
   },
-  "prefix": "test-log.",
+
   "paths": [
-    "./test*.log"
+    {"path": "./test*.log", "prefix": "logs.streamer"}
   ]
 }
